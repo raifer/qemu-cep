@@ -19,6 +19,13 @@ config SIFIVE_U
     select HART
     select SIFIVE
 
+config CEP_RISCV
+    bool
+    select CADENCE
+    select HART
+    select SIFIVE
+
+
 config SPIKE
     bool
     select HART
