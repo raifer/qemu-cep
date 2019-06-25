@@ -488,7 +488,7 @@ static void mipscep_fb_update_display(void *opaque)
     }
 
 
-    for(i = GUI_PUSHBTN0; i < GUI_PUSHBTN3; i++) {
+    for(i = GUI_PUSHBTN0; i <= GUI_PUSHBTN3; i++) {
         if (s->persistance[i]) {
             s->persistance[i]--;
             if (!s->persistance[i]) {
