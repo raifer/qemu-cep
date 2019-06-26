@@ -60,12 +60,9 @@ static const struct MemmapEntry {
     [SIFIVE_U_PLIC] =     {  0xc000000,  0x4000000 },
     [SIFIVE_U_UART0] =    { 0x10013000,     0x1000 },
     [SIFIVE_U_DRAM] =     { 0x80000000,        0x0 },
-    [SIFIVE_U_GEM] =      { 0x100900FC,     0x2000 },
     [SIFIVE_U_FB] =       {  0x3000000,    0x20 },
     [SIFIVE_U_VRAM] =     { 0x60000000,    0x10000 },
 };
-
-#define GEM_REVISION        0x10070109
 
 static target_ulong load_kernel(const char *kernel_filename)
 {
@@ -331,9 +328,6 @@ static void riscv_sifive_u_soc_init(Object *obj)
                             &error_abort);
     object_property_set_int(OBJECT(&s->cpus), smp_cpus, "num-harts",
                             &error_abort);
-
-    sysbus_init_child_obj(obj, "gem", &s->gem, sizeof(s->gem),
-                          TYPE_CADENCE_GEM);
 }
 
 static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
@@ -342,10 +336,6 @@ static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
     const struct MemmapEntry *memmap = sifive_u_memmap;
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
-    qemu_irq plic_gpios[SIFIVE_U_PLIC_NUM_SOURCES];
-    int i;
-    Error *err = NULL;
-    NICInfo *nd = &nd_table[0];
 
     object_property_set_bool(OBJECT(&s->cpus), true, "realized",
                              &error_abort);
@@ -374,26 +364,7 @@ static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
         memmap[SIFIVE_U_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 
-    for (i = 0; i < SIFIVE_U_PLIC_NUM_SOURCES; i++) {
-        plic_gpios[i] = qdev_get_gpio_in(DEVICE(s->plic), i);
-    }
-
-    if (nd->used) {
-        qemu_check_nic_model(nd, TYPE_CADENCE_GEM);
-        qdev_set_nic_properties(DEVICE(&s->gem), nd);
-    }
-    object_property_set_int(OBJECT(&s->gem), GEM_REVISION, "revision",
-                            &error_abort);
-    object_property_set_bool(OBJECT(&s->gem), true, "realized", &err);
-    if (err) {
-        error_propagate(errp, err);
-        return;
-    }
-    sysbus_mmio_map(SYS_BUS_DEVICE(&s->gem), 0, memmap[SIFIVE_U_GEM].base);
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->gem), 0,
-                       plic_gpios[SIFIVE_U_GEM_IRQ]);
-
-    mipscep_fb_init(system_memory, memmap[SIFIVE_U_VRAM].base, memmap[SIFIVE_U_FB].base, qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_PUSH_BUTTON_IRQ));
+       mipscep_fb_init(system_memory, memmap[SIFIVE_U_VRAM].base, memmap[SIFIVE_U_FB].base, qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_PUSH_BUTTON_IRQ));
 
 }
 
