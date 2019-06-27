@@ -54,14 +54,12 @@ static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;
 } sifive_u_memmap[] = {
-    [SIFIVE_U_DEBUG] =    {        0x0,      0x100 },
-    [SIFIVE_U_MROM] =     {     0x1000,    0x11000 },
-    [SIFIVE_U_CLINT] =    {  0x2000000,    0x10000 },
-    [SIFIVE_U_PLIC] =     {  0xc000000,  0x4000000 },
-    [SIFIVE_U_UART0] =    { 0x10013000,     0x1000 },
-    [SIFIVE_U_DRAM] =     { 0x80000000,        0x0 },
-    [SIFIVE_U_FB] =       {  0x3000000,    0x20 },
-    [SIFIVE_U_VRAM] =     { 0x60000000,    0x10000 },
+    [SIFIVE_U_BRAM] =     { 0x0,        0x0 }, // taille dimensionée par la ligne de commande
+    [SIFIVE_U_CLINT] =    { 0x2000000,  0x10000 },
+    [SIFIVE_U_PLIC] =     { 0xc000000,  0x4000000 },
+    [SIFIVE_U_UART0] =    { 0x10013000, 0x1000 },
+    [SIFIVE_U_FB] =       { 0x3000000,  0x20 },
+    [SIFIVE_U_VRAM] =     { 0x80000000, 0x10000 },
 };
 
 static target_ulong load_kernel(const char *kernel_filename)
@@ -84,7 +82,6 @@ static void riscv_sifive_u_init(MachineState *machine)
     SiFiveUState *s = g_new0(SiFiveUState, 1);
     MemoryRegion *system_memory = get_system_memory();
     MemoryRegion *main_mem = g_new(MemoryRegion, 1);
-    int i;
 
     /* Initialize SoC */
     object_initialize_child(OBJECT(machine), "soc", &s->soc,
@@ -96,36 +93,12 @@ static void riscv_sifive_u_init(MachineState *machine)
     /* register RAM */
     memory_region_init_ram(main_mem, NULL, "riscv.sifive.u.ram",
                            machine->ram_size, &error_fatal);
-    memory_region_add_subregion(system_memory, memmap[SIFIVE_U_DRAM].base,
+    memory_region_add_subregion(system_memory, memmap[SIFIVE_U_BRAM].base,
                                 main_mem);
 
     if (machine->kernel_filename) {
         load_kernel(machine->kernel_filename);
     }
-
-    /* reset vector */
-    uint32_t reset_vec[8] = {
-        0x00000297,                    /* 1:  auipc  t0, %pcrel_hi(dtb) */
-        0x02028593,                    /*     addi   a1, t0, %pcrel_lo(1b) */
-        0xf1402573,                    /*     csrr   a0, mhartid  */
-#if defined(TARGET_RISCV32)
-        0x0182a283,                    /*     lw     t0, 24(t0) */
-#elif defined(TARGET_RISCV64)
-        0x0182b283,                    /*     ld     t0, 24(t0) */
-#endif
-        0x00028067,                    /*     jr     t0 */
-        0x00000000,
-        memmap[SIFIVE_U_DRAM].base, /* start: .dword DRAM_BASE */
-        0x00000000,
-                                       /* dtb: */
-    };
-
-    /* copy in the reset vector in little_endian byte order */
-    for (i = 0; i < sizeof(reset_vec) >> 2; i++) {
-        reset_vec[i] = cpu_to_le32(reset_vec[i]);
-    }
-    rom_add_blob_fixed_as("mrom.reset", reset_vec, sizeof(reset_vec),
-                          memmap[SIFIVE_U_MROM].base, &address_space_memory);
 
 }
 
@@ -146,16 +119,9 @@ static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
     SiFiveUSoCState *s = RISCV_CEP_SOC(dev);
     const struct MemmapEntry *memmap = sifive_u_memmap;
     MemoryRegion *system_memory = get_system_memory();
-    MemoryRegion *mask_rom = g_new(MemoryRegion, 1);
 
     object_property_set_bool(OBJECT(&s->cpus), true, "realized",
                              &error_abort);
-
-    /* boot rom */
-    memory_region_init_rom(mask_rom, NULL, "riscv.sifive.u.mrom",
-                           memmap[SIFIVE_U_MROM].size, &error_fatal);
-    memory_region_add_subregion(system_memory, memmap[SIFIVE_U_MROM].base,
-                                mask_rom);
 
     /* MMIO */
     s->plic = sifive_plic_create(memmap[SIFIVE_U_PLIC].base,
