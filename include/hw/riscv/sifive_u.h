@@ -58,7 +58,8 @@ enum {
     SIFIVE_U_DRAM,
     SIFIVE_U_GEM,
     SIFIVE_U_FB,
-    SIFIVE_U_VRAM
+    SIFIVE_U_VRAM,
+    SIFIVE_U_BRAM
 };
 
 enum {
