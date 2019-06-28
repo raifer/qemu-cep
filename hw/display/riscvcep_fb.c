@@ -20,10 +20,10 @@
 #include "qemu/osdep.h"
 #include "hw/hw.h"
 #include "ui/console.h"
-#include "hw/riscv/cep_riscv.h"
 #include "framebuffer.h"
 #include "ui/pixel_ops.h"
 
+#include "hw/display/riscvcep_fb.h"
 /* Contains images data */
 #include "hw/riscv/riscvcep_fbres.h"
 

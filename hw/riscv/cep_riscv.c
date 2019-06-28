@@ -40,13 +40,14 @@
 #include "hw/riscv/sifive_clint.h"
 #include "hw/riscv/sifive_uart.h"
 #include "hw/riscv/sifive_prci.h"
-#include "hw/riscv/sifive_u.h"
-#include "hw/riscv/cep_riscv.h"
 #include "chardev/char.h"
 #include "sysemu/arch_init.h"
 #include "sysemu/device_tree.h"
 #include "exec/address-spaces.h"
 #include "elf.h"
+
+#include "hw/riscv/cep_riscv.h"
+#include "hw/display/riscvcep_fb.h"
 
 #include <libfdt.h>
 
@@ -58,7 +59,7 @@ static const struct MemmapEntry {
     [SIFIVE_U_CLINT] =    { 0x2000000,  0x10000 },
     [SIFIVE_U_PLIC] =     { 0xc000000,  0x4000000 },
     [SIFIVE_U_UART0] =    { 0x10013000, 0x1000 },
-    [SIFIVE_U_FB] =       { 0x30000000,  0x20 },
+    [SIFIVE_U_PERIPHS] =  { 0x30000000, 0x20 },
     [SIFIVE_U_VRAM] =     { 0x80000000, 0x10000 },
 };
 
@@ -141,7 +142,7 @@ static void riscv_sifive_u_soc_realize(DeviceState *dev, Error **errp)
         memmap[SIFIVE_U_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 
-       mipscep_fb_init(system_memory, memmap[SIFIVE_U_VRAM].base, memmap[SIFIVE_U_FB].base, qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_PUSH_BUTTON_IRQ));
+       mipscep_fb_init(system_memory, memmap[SIFIVE_U_VRAM].base, memmap[SIFIVE_U_PERIPHS].base, qdev_get_gpio_in(DEVICE(s->plic), SIFIVE_U_PUSH_BUTTON_IRQ));
 
 }
 
