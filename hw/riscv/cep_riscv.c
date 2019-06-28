@@ -58,7 +58,7 @@ static const struct MemmapEntry {
     [SIFIVE_U_CLINT] =    { 0x2000000,  0x10000 },
     [SIFIVE_U_PLIC] =     { 0xc000000,  0x4000000 },
     [SIFIVE_U_UART0] =    { 0x10013000, 0x1000 },
-    [SIFIVE_U_FB] =       { 0x3000000,  0x20 },
+    [SIFIVE_U_FB] =       { 0x30000000,  0x20 },
     [SIFIVE_U_VRAM] =     { 0x80000000, 0x10000 },
 };
 
