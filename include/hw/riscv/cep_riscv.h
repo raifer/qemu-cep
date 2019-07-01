@@ -7,39 +7,39 @@
 
 #define TYPE_RISCV_CEP_SOC "riscv.cep.soc"
 #define RISCV_U_SOC(obj) \
-    OBJECT_CHECK(SiFiveUSoCState, (obj), TYPE_RISCV_U_SOC)
+    OBJECT_CHECK(CepSoCState, (obj), TYPE_RISCV_U_SOC)
 #define RISCV_CEP_SOC(obj) \
-    OBJECT_CHECK(SiFiveUSoCState, (obj), TYPE_RISCV_CEP_SOC)
+    OBJECT_CHECK(CepSoCState, (obj), TYPE_RISCV_CEP_SOC)
 
-typedef struct SiFiveUSoCState {
+typedef struct CepSoCState {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
     RISCVHartArrayState cpus;
     DeviceState *plic;
-} SiFiveUSoCState;
+} CepSoCState;
 
-typedef struct SiFiveUState {
+typedef struct CepState {
     /*< private >*/
     SysBusDevice parent_obj;
 
     /*< public >*/
-    SiFiveUSoCState soc;
-} SiFiveUState;
+    CepSoCState soc;
+} CepState;
 
 enum {
-    SIFIVE_U_CLINT,
-    SIFIVE_U_PLIC,
-    SIFIVE_U_UART0,
-    SIFIVE_U_PERIPHS,
-    SIFIVE_U_VRAM,
-    SIFIVE_U_BRAM
+    CEP_CLINT,
+    CEP_PLIC,
+    CEP_UART0,
+    CEP_PERIPHS,
+    CEP_VRAM,
+    CEP_BRAM
 };
 
 enum {
-    SIFIVE_U_UART0_IRQ          = 0,
-    SIFIVE_U_PUSH_BUTTON_IRQ    = 1,
+    CEP_UART0_IRQ          = 0,
+    CEP_PUSH_BUTTON_IRQ    = 1,
 };
 
 #define SIFIVE_U_PLIC_HART_CONFIG "MS"
