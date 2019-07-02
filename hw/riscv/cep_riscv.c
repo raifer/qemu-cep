@@ -63,7 +63,7 @@ static const struct MemmapEntry {
     [CEP_PLIC] =     { 0xc000000,  0x4000000 },
     [CEP_UART0] =    { 0x10013000, 0x1000 },
     [CEP_PERIPHS] =  { 0x30000000, 0x20 },
-    [CEP_VRAM] =     { 0x80000000, 0x10000 },
+    [CEP_VRAM] =     { 0x80000000, 0x0 }, // taille dimensionée à l'intérieur du framebuffer
 };
 
 static target_ulong load_kernel(const char *kernel_filename)
@@ -146,7 +146,6 @@ static void riscv_cep_soc_realize(DeviceState *dev, Error **errp)
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 
        mipscep_fb_init(system_memory, memmap[CEP_VRAM].base, memmap[CEP_PERIPHS].base, qdev_get_gpio_in(DEVICE(s->plic), CEP_PUSH_BUTTON_IRQ));
-
 }
 
 static void riscv_cep_machine_init(MachineClass *mc)

@@ -30,11 +30,15 @@
 #define FB_WIDTH                640
 #define FB_HEIGHT               480
 
-#define VRAM_OFFSET_X           20
-#define VRAM_OFFSET_Y           20
-#define VVGA_WIDTH				320
-#define VRAM_WIDTH              512
-#define VRAM_HEIGHT             240
+//#define VRAM_OFFSET_X           20
+//#define VRAM_OFFSET_Y           20
+//#define VVGA_WIDTH				320
+//#define VRAM_WIDTH              512
+//#define VRAM_HEIGHT             240
+
+#define VRAM_WIDTH             1280
+#define VRAM_HEIGHT            720
+#define VRAM_SIZE              (VRAM_WIDTH * VRAM_HEIGHT * 4)
 
 #define REG_LEDS                0x0
 #define REG_SWITCHES            0x4
@@ -260,10 +264,13 @@ struct mipscep_fb_s {
 
     uint32_t vram_size;
 
-    QemuConsole *con;
+    QemuConsole *con_board;
+    QemuConsole *con_fb;
     QEMUPutMouseEntry *mouse_hdl;  
+    QEMUPutMouseEntry *mouse_hdl_fb;  
 
     enum gui_invalidate invalidate;
+    enum gui_invalidate invalidate_fb;
 
     int last_bstate;
 
@@ -288,7 +295,7 @@ struct mipscep_fb_s {
 
 static inline void fill_draw_info(struct mipscep_fb_s *s)
 {
-    DisplaySurface *surface = qemu_console_surface(s->con);
+    DisplaySurface *surface = qemu_console_surface(s->con_board);
     switch (surface_bits_per_pixel(surface)) {
         case 8:
             s->draw_info.rgb_to_pixel = rgb_to_pixel8;
@@ -325,7 +332,7 @@ static inline void draw_img(struct mipscep_fb_s *s, const struct img_data *img, 
     const uint8_t *src = img->data;
     uint8_t *dst;
 
-    surface = qemu_console_surface(s->con);
+    surface = qemu_console_surface(s->con_board);
     dst = surface_offset(surface, surface_data(surface), x, y);
     w = s->draw_info.w;
 
@@ -351,34 +358,24 @@ static inline void draw_bg(struct mipscep_fb_s *s)
 static inline void draw_vram(struct mipscep_fb_s *s)
 {
     DisplaySurface *surface;
-    unsigned int black, green;
-    uint8_t *d, *vram;
-    int w, i, j, k;
+    uint32_t *d, *start, *vram;
+    int w, i, j;
 
-    surface = qemu_console_surface(s->con);
-    black = s->draw_info.rgb_to_pixel(0, 0, 0);
-    green = s->draw_info.rgb_to_pixel(0, 255, 0);
-    //white = s->draw_info.rgb_to_pixel(255, 255, 255);
+    surface = qemu_console_surface(s->con_fb);
+    
     w = s->draw_info.w;
 
-    d = surface_offset(surface, surface_data(surface), VRAM_OFFSET_X, VRAM_OFFSET_Y);
-
-    vram = s->vram;
-
+    start = (uint32_t *)surface_offset(surface, surface_data(surface), 0, 0);
+    d = start;
+    vram = (uint32_t *)s->vram;
     for(j = 0; j < VRAM_HEIGHT; j++) {
-        for(i = 0; i < VVGA_WIDTH/8; i++) {
-            uint8_t b = *vram++;
-            for(k = 0; k < 8; k++) {
-                memcpy(d, (b & 0x80) ? &green : &black, w);
-                b <<= 1;
-                d += w;
-            }
+        for(i = 0; i < VRAM_WIDTH; i++) {
+            memcpy(d, vram, w);
+            d ++;
+            vram++;
         }
-        d += (surface_stride(surface) - VVGA_WIDTH * w);
-        vram += (VRAM_WIDTH-VVGA_WIDTH)>>3;
     }
 }
-
 static inline void draw_guielt(struct mipscep_fb_s *s)
 {
     enum gui_elt_id i;
@@ -426,12 +423,12 @@ static inline void get_redraw_bb(const struct mipscep_fb_s *s, int *x0, int *y0,
     *x0 = FB_HEIGHT; *y0 = FB_HEIGHT;
     *x1 = *y1 = 0;
 
-    if(s->invalidate & INVAL_FB) {
-        *x0 = MIN(*x0, VRAM_OFFSET_X);
-        *y0 = MIN(*y0, VRAM_OFFSET_Y);
-        *x1 = MAX(*x1, VRAM_OFFSET_X + VVGA_WIDTH);
-        *y1 = MAX(*y1, VRAM_OFFSET_Y + VRAM_HEIGHT);
-    }
+   // if(s->invalidate & INVAL_FB) {
+   //     *x0 = MIN(*x0, VRAM_OFFSET_X);
+   //     *y0 = MIN(*y0, VRAM_OFFSET_Y);
+   //     *x1 = MAX(*x1, VRAM_OFFSET_X + VVGA_WIDTH);
+   //     *y1 = MAX(*y1, VRAM_OFFSET_Y + VRAM_HEIGHT);
+   // }
 
     if(s->invalidate & INVAL_LEDS) {
         *x0 = MIN(*x0, gui_elts[GUI_LED7].x);
@@ -467,19 +464,18 @@ static inline bool vram_is_dirty(struct mipscep_fb_s *s)
     return memory_region_snapshot_and_clear_dirty(&s->mem_vram, 0, s->vram_size, DIRTY_MEMORY_VGA);
 }
 
-static void mipscep_fb_update_display(void *opaque)
+static void mipscep_board_update_display(void *opaque)
 {
     struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
     int x0, y0, x1, y1;
     enum gui_elt_id i;
     DisplaySurface *surface;
 
-
-    surface = qemu_console_surface(s->con);
+    surface = qemu_console_surface(s->con_board);
 
     if (surface_width(surface) != FB_WIDTH ||
         surface_height(surface) != FB_HEIGHT) {
-        qemu_console_resize(s->con,
+        qemu_console_resize(s->con_board,
                             FB_WIDTH, FB_HEIGHT);
         s->invalidate = INVAL_ALL;
     }
@@ -505,82 +501,45 @@ static void mipscep_fb_update_display(void *opaque)
 	    s->invalidate = INVAL_ALL;
     }
 
-    if(vram_is_dirty(s)) {
-        /* Read and clear dirty bits on vram.
-         * One possible optimisation: Reduce the redraw grain of the fb
-         * ie. could redraw only dirty lines */
-        s->invalidate |= INVAL_FB;
-    }
-
-    if(s->invalidate & INVAL_FB) {
-	    draw_vram(s);
-    }
-
     draw_guielt(s);
 
     get_redraw_bb(s, &x0, &y0, &x1, &y1);
 
-    dpy_gfx_update(s->con, x0, y0, x1 - x0, y1 - y0);
+    dpy_gfx_update(s->con_board, x0, y0, x1 - x0, y1 - y0);
 
     s->invalidate = 0;
 }
 
-static void mipscep_fb_update_display2(void *opaque)
+static void mipscep_fb_update_display(void *opaque)
 {
     struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
-   // int x0, y0, x1, y1;
-   // enum gui_elt_id i;
-   // DisplaySurface *surface;
+    DisplaySurface *surface;
 
+    surface = qemu_console_surface(s->con_fb);
 
-   // surface = qemu_console_surface(s->con);
+    if (surface_width(surface) != VRAM_WIDTH ||
+        surface_height(surface) != VRAM_HEIGHT) {
+        qemu_console_resize(s->con_fb,
+                            VRAM_WIDTH, VRAM_HEIGHT);
+        s->invalidate_fb = INVAL_ALL;
+    }
 
-   // if (surface_width(surface) != FB_WIDTH ||
-   //     surface_height(surface) != FB_HEIGHT) {
-   //     qemu_console_resize(s->con,
-   //                         FB_WIDTH, FB_HEIGHT);
-   //     s->invalidate = INVAL_ALL;
-   // }
+    fill_draw_info(s);
 
-   // if(s->invalidate & INVAL_ALL) {
-   //     fill_draw_info(s);
-   // }
+    if(vram_is_dirty(s)) {
+        /* Read and clear dirty bits on vram.
+         * One possible optimisation: Reduce the redraw grain of the fb
+         * ie. could redraw only dirty lines */
+        s->invalidate_fb |= INVAL_BG;
+    }
 
+    if(s->invalidate_fb & INVAL_BG) {
+        draw_vram(s);
+    }
 
-   // for(i = GUI_PUSHBTN0; i <= GUI_PUSHBTN3; i++) {
-   //     if (s->persistance[i]) {
-   //         s->persistance[i]--;
-   //         if (!s->persistance[i]) {
-   //             s->invalidate |= INVAL_PUSHBTN;
-   //         }
-   //     }
-   // }
+    dpy_gfx_update_full(s->con_fb);
 
-   // if(s->invalidate & INVAL_BG) {
-   //     draw_bg(s);
-
-   //     /* Ensure we redraw everything */
-   //     s->invalidate = INVAL_ALL;
-   // }
-
-   // if(vram_is_dirty(s)) {
-   //     /* Read and clear dirty bits on vram.
-   //      * One possible optimisation: Reduce the redraw grain of the fb
-   //      * ie. could redraw only dirty lines */
-   //     s->invalidate |= INVAL_FB;
-   // }
-
-   // if(s->invalidate & INVAL_FB) {
-   //     draw_vram(s);
-   // }
-
-   // draw_guielt(s);
-
-   // get_redraw_bb(s, &x0, &y0, &x1, &y1);
-
-   // dpy_gfx_update(s->con, x0, y0, x1 - x0, y1 - y0);
-
-    s->invalidate = 0;
+    s->invalidate_fb = 0;
 }
 
 
@@ -654,48 +613,16 @@ static void mipscep_fb_mouse_event(void *opaque, int dx, int dy, int dz,
 
 }
 
-static void mipscep_fb_mouse_event2(void *opaque, int dx, int dy, int dz, 
-                                   int bstate)
-{
-   // struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
-   // int i;
-   // int xbstate = bstate ^ s->last_bstate;
-   // const struct gui_elt *new_was_in = NULL;
-
-   // /* QEMU reports absolute position btw 0 and 2^15-1 */
-   // int x = (dx * FB_WIDTH) >> 15;
-   // int y = (dy * FB_HEIGHT) >> 15;
-
-   // s->last_bstate = bstate;
-
-   // /* Left click event */
-   // if(xbstate & MOUSE_EVENT_LBUTTON) {
-   //     for(i = 0; i < ARRAY_SIZE(gui_elts); i++) {
-   //         if(!gui_elts[i].clickable) {
-   //             continue;
-   //         }
-
-   //         if(cursor_is_in(x, y, gui_elts+i)) {
-   //             guielt_click_event(s, gui_elts+i, bstate & MOUSE_EVENT_LBUTTON);
-   //             new_was_in = gui_elts + i;
-   //         } else if(gui_elts+i == s->was_in) {
-   //             /* FIXME... */
-   //             guielt_click_event(s, s->was_in, 0);
-   //         }
-   //     }
-   //     s->was_in = new_was_in;
-
-   // }
-
-}
-static void mipscep_fb_invalidate_display(void *opaque) {
+static void mipscep_board_invalidate_display(void *opaque) {
     struct mipscep_fb_s *mipscep_fb_lcd = opaque;
     mipscep_fb_lcd->invalidate = INVAL_ALL;
 }
+
 static void mipscep_fb_invalidate_display2(void *opaque) {
     struct mipscep_fb_s *mipscep_fb_lcd = opaque;
     mipscep_fb_lcd->invalidate = INVAL_ALL;
 }
+
 static uint64_t mipscep_periph_read(void *opaque, hwaddr addr, 
                                     unsigned int size)
 {
@@ -713,7 +640,6 @@ static uint64_t mipscep_periph_read(void *opaque, hwaddr addr,
                 /* In INT mode, read inplies ack and return to 0 state */
                 s->periph_sta[i] = 0;
             }
-
         }
 
         for(i = GUI_SWITCH7; i >= GUI_SWITCH0; i--) {
@@ -826,14 +752,14 @@ void mipscep_fb_reset(struct mipscep_fb_s *s)
     update_7seg(s, 0);
 }
 
-static const GraphicHwOps mipscep_fb_ops = {
-    .invalidate  = mipscep_fb_invalidate_display,
-    .gfx_update  = mipscep_fb_update_display,
+static const GraphicHwOps mipscep_board_ops = {
+    .invalidate  = mipscep_board_invalidate_display,
+    .gfx_update  = mipscep_board_update_display,
 };
 
-static const GraphicHwOps mipscep_fb_ops2 = {
+static const GraphicHwOps mipscep_fb_ops = {
     .invalidate  = mipscep_fb_invalidate_display2,
-    .gfx_update  = mipscep_fb_update_display2,
+    .gfx_update  = mipscep_fb_update_display,
 };
 static const MemoryRegionOps mipscep_periph_op = {
     .read = mipscep_periph_read,
@@ -847,26 +773,16 @@ void mipscep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
     struct mipscep_fb_s *s = (struct mipscep_fb_s *)
             g_malloc0(sizeof(struct mipscep_fb_s));
 
-    s->vram_size = (VRAM_WIDTH * VRAM_HEIGHT) >> 3;
+    s->vram_size = VRAM_SIZE;
+    s->vram = g_malloc0(VRAM_SIZE);
 
-    struct mipscep_fb_s *s2 = (struct mipscep_fb_s *)
-            g_malloc0(sizeof(struct mipscep_fb_s));
-
-
-
-
-    s->vram = g_malloc0(s->vram_size);
-
-    s->con = graphic_console_init(NULL, 0, &mipscep_fb_ops, s);
+    s->con_board = graphic_console_init(NULL, 0, &mipscep_board_ops, s);
     s->mouse_hdl = qemu_add_mouse_event_handler(mipscep_fb_mouse_event, 
                                                 s, 1, "mipscep_fb mouse");
+    s->con_fb = graphic_console_init(NULL, 0, &mipscep_fb_ops, s);
 
     s->pushbtn_irq = pushbtn_irq;
 
-    s2->con = graphic_console_init(NULL, 0, &mipscep_fb_ops2, s2);
-
-    s2->mouse_hdl = qemu_add_mouse_event_handler(mipscep_fb_mouse_event2, s2, 1, "mipscep_fb mouse 2");
-    
     memory_region_init_ram_ptr(&s->mem_vram, NULL , "mipscep_fb_vram",
                                s->vram_size, s->vram);
     memory_region_add_subregion(sysmem, vram_offset, &s->mem_vram);
