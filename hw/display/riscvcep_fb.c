@@ -32,13 +32,16 @@
 
 //#define VRAM_OFFSET_X           20
 //#define VRAM_OFFSET_Y           20
-//#define VVGA_WIDTH				320
+//#define VVGA_WIDTH		      320
 //#define VRAM_WIDTH              512
 //#define VRAM_HEIGHT             240
 
-#define VRAM_WIDTH             1280
-#define VRAM_HEIGHT            720
-#define VRAM_SIZE              (VRAM_WIDTH * VRAM_HEIGHT * 4)
+#define VRAM_WIDTH                        1920
+#define VRAM_HEIGHT                       1080
+#define VRAM_WIDTH_EFFECTIVE_DEFAULT      1280
+#define VRAM_HEIGHT_EFFECTIVE_DEFAULT     720
+#define VRAM_SIZE_EFFECTIVE_DEFAULT       (VRAM_WIDTH_EFFECTIVE_DEFAULT * VRAM_HEIGHT_EFFECTIVE_DEFAULT * 4)
+#define VRAM_SIZE                         (VRAM_WIDTH * VRAM_HEIGHT * 4)
 
 #define REG_LEDS                0x0
 #define REG_SWITCHES            0x4
@@ -255,6 +258,14 @@ static int const r7segs_mapping[][NUM_SEG] = {
     },
 };
 
+struct riscv_cep_fb_s ;
+
+struct riscv_cep_fb_ctrl_s {
+    struct riscv_cep_fb_s *s;
+    MemoryRegion mem_fb_ctrl;
+    uint32_t Reg_MODE;
+    uint32_t Reg_ADDR;
+};
 
 struct riscv_cep_fb_s {
     MemoryRegion mem_vram;
@@ -263,6 +274,9 @@ struct riscv_cep_fb_s {
     MemoryRegion mem_periph;
 
     uint32_t vram_size;
+    uint32_t vram_size_effective;
+    uint32_t vram_width_effective;
+    uint32_t vram_heigth_effective;
 
     QemuConsole *con_board;
     QemuConsole *con_fb;
@@ -291,7 +305,10 @@ struct riscv_cep_fb_s {
     qemu_irq pushbtn_irq;
 
     const struct gui_elt *was_in;
+
+    struct riscv_cep_fb_ctrl_s *ctrl;
 };
+
 
 static inline void fill_draw_info(struct riscv_cep_fb_s *s)
 {
@@ -355,11 +372,36 @@ static inline void draw_bg(struct riscv_cep_fb_s *s)
     draw_img(s, &img_cep_fb_bg, 0, 0);
 }
 
+static inline uint32_t set_hdmi_mode(struct riscv_cep_fb_s *s, uint32_t mode) {
+
+    switch (mode) {
+        case 4:
+            s->vram_width_effective            = 1280;
+            s->vram_heigth_effective           = 720;
+            break;
+        case 19:
+        case 32 ... 34:
+            s->vram_width_effective            = 1920;
+            s->vram_heigth_effective           = 1080;
+            break;
+        default:
+            printf("ERROR: Unsupported HDMI mode (%u), switching to 720p mode (4)\n", mode);
+            s->vram_width_effective            = 1280;
+            s->vram_heigth_effective           = 720;
+            mode = 4;
+            break;
+    }
+    return mode;
+}
+
 static inline void draw_vram(struct riscv_cep_fb_s *s)
 {
     DisplaySurface *surface;
     uint32_t *d, *start, *vram;
     int w, i, j;
+    uint32_t width, heigth;
+    width = s->vram_width_effective;
+    heigth= s->vram_heigth_effective;
 
     surface = qemu_console_surface(s->con_fb);
     
@@ -368,8 +410,8 @@ static inline void draw_vram(struct riscv_cep_fb_s *s)
     start = (uint32_t *)surface_offset(surface, surface_data(surface), 0, 0);
     d = start;
     vram = (uint32_t *)s->vram;
-    for(j = 0; j < VRAM_HEIGHT; j++) {
-        for(i = 0; i < VRAM_WIDTH; i++) {
+    for(j = 0; j < heigth; j++) {
+        for(i = 0; i < width; i++) {
             memcpy(d, vram, w);
             d ++;
             vram++;
@@ -461,7 +503,7 @@ static inline void get_redraw_bb(const struct riscv_cep_fb_s *s, int *x0, int *y
 
 static inline bool vram_is_dirty(struct riscv_cep_fb_s *s)
 {
-    return memory_region_snapshot_and_clear_dirty(&s->mem_vram, 0, s->vram_size, DIRTY_MEMORY_VGA);
+    return memory_region_snapshot_and_clear_dirty(&s->mem_vram, 0, s->vram_size_effective, DIRTY_MEMORY_VGA);
 }
 
 static void riscv_cep_board_update_display(void *opaque)
@@ -517,10 +559,10 @@ static void riscv_cep_fb_update_display(void *opaque)
 
     surface = qemu_console_surface(s->con_fb);
 
-    if (surface_width(surface) != VRAM_WIDTH ||
-        surface_height(surface) != VRAM_HEIGHT) {
+    if (surface_width(surface) != s->vram_width_effective ||
+        surface_height(surface) != s->vram_heigth_effective) {
         qemu_console_resize(s->con_fb,
-                            VRAM_WIDTH, VRAM_HEIGHT);
+                            s->vram_width_effective, s->vram_heigth_effective);
         s->invalidate_fb = INVAL_ALL;
     }
 
@@ -663,6 +705,13 @@ static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr,
 
     return val;
 }
+static uint64_t riscv_cep_fb_ctrl_read(void *opaque, hwaddr addr, 
+                                    unsigned int size)
+{
+
+    return 0;
+}
+
 
 static void update_7seg(struct riscv_cep_fb_s* s, uint32_t val)
 {
@@ -742,6 +791,24 @@ static void riscv_cep_periph_write(void *opaque, hwaddr addr,
    }
 }
 
+static void riscv_cep_fb_ctrl_write(void *opaque, hwaddr addr, 
+                                    uint64_t val, unsigned int size)
+{
+
+    struct riscv_cep_fb_ctrl_s *ctrl = (struct riscv_cep_fb_ctrl_s*) opaque; 
+    switch(addr) {
+    case 0: 
+        ctrl->Reg_MODE = set_hdmi_mode(ctrl->s, val);
+        break;
+    case 4:
+        ctrl->Reg_ADDR = (uint32_t)val;
+        break;
+    default:
+        break;
+    }
+}
+
+
 void riscv_cep_fb_reset(struct riscv_cep_fb_s *s)
 {
     memset(s->periph_sta, 0, sizeof(s->periph_sta));
@@ -761,11 +828,30 @@ static const GraphicHwOps riscv_cep_fb_ops = {
     .invalidate  = riscv_cep_fb_invalidate_display2,
     .gfx_update  = riscv_cep_fb_update_display,
 };
+
 static const MemoryRegionOps riscv_cep_periph_op = {
     .read = riscv_cep_periph_read,
     .write = riscv_cep_periph_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
+
+static const MemoryRegionOps riscv_cep_fb_ctrl_op = {
+    .read = riscv_cep_fb_ctrl_read,
+    .write = riscv_cep_fb_ctrl_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+
+void riscv_cep_fb_ctrl_init(struct riscv_cep_fb_ctrl_s **ptr, MemoryRegion *sysmem, hwaddr fb_ctrl_offset); 
+void riscv_cep_fb_ctrl_init(struct riscv_cep_fb_ctrl_s **ptr, MemoryRegion *sysmem, hwaddr fb_ctrl_offset) 
+{
+    *ptr = (struct riscv_cep_fb_ctrl_s *)
+            g_malloc0(sizeof(struct riscv_cep_fb_ctrl_s));
+    struct riscv_cep_fb_ctrl_s * ctrl = *ptr;
+    memory_region_init_io(&ctrl->mem_fb_ctrl, NULL, &riscv_cep_fb_ctrl_op, ctrl,
+                          "riscv_cep_fb_ctrl", 0x8);
+    memory_region_add_subregion(sysmem, fb_ctrl_offset, &ctrl->mem_fb_ctrl);
+}
 
 void riscv_cep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
                      hwaddr periph_offset, qemu_irq pushbtn_irq)
@@ -773,8 +859,11 @@ void riscv_cep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
     struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s *)
             g_malloc0(sizeof(struct riscv_cep_fb_s));
 
-    s->vram_size = VRAM_SIZE;
+    s->vram_size           = VRAM_SIZE;
+    s->vram_size_effective = VRAM_SIZE_EFFECTIVE_DEFAULT;
     s->vram = g_malloc0(VRAM_SIZE);
+
+    set_hdmi_mode(s, 4);
 
     s->con_board = graphic_console_init(NULL, 0, &riscv_cep_board_ops, s);
     s->mouse_hdl = qemu_add_mouse_event_handler(riscv_cep_fb_mouse_event, 
@@ -789,8 +878,11 @@ void riscv_cep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
     memory_region_set_log(&s->mem_vram, true, DIRTY_MEMORY_VGA);
 
     memory_region_init_io(&s->mem_periph, NULL, &riscv_cep_periph_op, s,
-                          "riscv_cep_fb_periph", 0x20);
+                          "riscv_cep_periph", 0x20);
     memory_region_add_subregion(sysmem, periph_offset, &s->mem_periph);
+
+    riscv_cep_fb_ctrl_init(&s->ctrl, sysmem, 0x70000000);
+    s->ctrl->s = s;
 
     riscv_cep_fb_reset(s);
 }
