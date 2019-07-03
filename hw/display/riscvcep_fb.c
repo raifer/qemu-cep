@@ -256,7 +256,7 @@ static int const r7segs_mapping[][NUM_SEG] = {
 };
 
 
-struct mipscep_fb_s {
+struct riscv_cep_fb_s {
     MemoryRegion mem_vram;
     uint8_t *vram;
 
@@ -293,7 +293,7 @@ struct mipscep_fb_s {
     const struct gui_elt *was_in;
 };
 
-static inline void fill_draw_info(struct mipscep_fb_s *s)
+static inline void fill_draw_info(struct riscv_cep_fb_s *s)
 {
     DisplaySurface *surface = qemu_console_surface(s->con_board);
     switch (surface_bits_per_pixel(surface)) {
@@ -314,7 +314,7 @@ static inline void fill_draw_info(struct mipscep_fb_s *s)
             s->draw_info.w = 4;
             break;
         default:
-            hw_error("mipscep_fb: unknown host depth %d",
+            hw_error("riscv_cep_fb: unknown host depth %d",
                      surface_bits_per_pixel(surface));
     }
 }
@@ -325,7 +325,7 @@ static inline uint8_t* surface_offset(DisplaySurface *s, uint8_t *d, int dx, int
     return (d + surface_stride(s) * dy + surface_bytes_per_pixel(s) * dx);
 }
 
-static inline void draw_img(struct mipscep_fb_s *s, const struct img_data *img, int x, int y)
+static inline void draw_img(struct riscv_cep_fb_s *s, const struct img_data *img, int x, int y)
 {
     DisplaySurface *surface;
     int w, i, j;
@@ -350,12 +350,12 @@ static inline void draw_img(struct mipscep_fb_s *s, const struct img_data *img, 
     }
 }
 
-static inline void draw_bg(struct mipscep_fb_s *s)
+static inline void draw_bg(struct riscv_cep_fb_s *s)
 {
     draw_img(s, &img_cep_fb_bg, 0, 0);
 }
 
-static inline void draw_vram(struct mipscep_fb_s *s)
+static inline void draw_vram(struct riscv_cep_fb_s *s)
 {
     DisplaySurface *surface;
     uint32_t *d, *start, *vram;
@@ -376,7 +376,7 @@ static inline void draw_vram(struct mipscep_fb_s *s)
         }
     }
 }
-static inline void draw_guielt(struct mipscep_fb_s *s)
+static inline void draw_guielt(struct riscv_cep_fb_s *s)
 {
     enum gui_elt_id i;
 
@@ -410,7 +410,7 @@ static inline void draw_guielt(struct mipscep_fb_s *s)
 }
 
 /* Return the bounding box of the area to be redrawn */
-static inline void get_redraw_bb(const struct mipscep_fb_s *s, int *x0, int *y0,
+static inline void get_redraw_bb(const struct riscv_cep_fb_s *s, int *x0, int *y0,
 				 int *x1, int *y1)
 {
     if(s->invalidate & INVAL_BG) {
@@ -459,14 +459,14 @@ static inline void get_redraw_bb(const struct mipscep_fb_s *s, int *x0, int *y0,
     }
 }
 
-static inline bool vram_is_dirty(struct mipscep_fb_s *s)
+static inline bool vram_is_dirty(struct riscv_cep_fb_s *s)
 {
     return memory_region_snapshot_and_clear_dirty(&s->mem_vram, 0, s->vram_size, DIRTY_MEMORY_VGA);
 }
 
-static void mipscep_board_update_display(void *opaque)
+static void riscv_cep_board_update_display(void *opaque)
 {
-    struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s*) opaque; 
     int x0, y0, x1, y1;
     enum gui_elt_id i;
     DisplaySurface *surface;
@@ -510,9 +510,9 @@ static void mipscep_board_update_display(void *opaque)
     s->invalidate = 0;
 }
 
-static void mipscep_fb_update_display(void *opaque)
+static void riscv_cep_fb_update_display(void *opaque)
 {
-    struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s*) opaque; 
     DisplaySurface *surface;
 
     surface = qemu_console_surface(s->con_fb);
@@ -544,7 +544,7 @@ static void mipscep_fb_update_display(void *opaque)
 
 
 
-static void guielt_click_event(struct mipscep_fb_s *s, 
+static void guielt_click_event(struct riscv_cep_fb_s *s, 
                                const struct gui_elt *e, int b)
 {
     switch(e->type) {
@@ -578,10 +578,10 @@ static inline int cursor_is_in(int x, int y, const struct gui_elt *e)
             (x < e->x + e->s[0]->w) && (y < e->y + e->s[0]->h));
 }
 
-static void mipscep_fb_mouse_event(void *opaque, int dx, int dy, int dz, 
+static void riscv_cep_fb_mouse_event(void *opaque, int dx, int dy, int dz, 
                                    int bstate)
 {
-    struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s*) opaque; 
     int i;
     int xbstate = bstate ^ s->last_bstate;
     const struct gui_elt *new_was_in = NULL;
@@ -613,20 +613,20 @@ static void mipscep_fb_mouse_event(void *opaque, int dx, int dy, int dz,
 
 }
 
-static void mipscep_board_invalidate_display(void *opaque) {
-    struct mipscep_fb_s *mipscep_fb_lcd = opaque;
-    mipscep_fb_lcd->invalidate = INVAL_ALL;
+static void riscv_cep_board_invalidate_display(void *opaque) {
+    struct riscv_cep_fb_s *riscv_cep_fb_lcd = opaque;
+    riscv_cep_fb_lcd->invalidate = INVAL_ALL;
 }
 
-static void mipscep_fb_invalidate_display2(void *opaque) {
-    struct mipscep_fb_s *mipscep_fb_lcd = opaque;
-    mipscep_fb_lcd->invalidate = INVAL_ALL;
+static void riscv_cep_fb_invalidate_display2(void *opaque) {
+    struct riscv_cep_fb_s *riscv_cep_fb_lcd = opaque;
+    riscv_cep_fb_lcd->invalidate = INVAL_ALL;
 }
 
-static uint64_t mipscep_periph_read(void *opaque, hwaddr addr, 
+static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr, 
                                     unsigned int size)
 {
-    struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s*) opaque; 
     uint64_t val;
     int i;
 
@@ -664,7 +664,7 @@ static uint64_t mipscep_periph_read(void *opaque, hwaddr addr,
     return val;
 }
 
-static void update_7seg(struct mipscep_fb_s* s, uint32_t val)
+static void update_7seg(struct riscv_cep_fb_s* s, uint32_t val)
 {
     int print_base = 0, i;
     uint16_t v = 0;
@@ -702,10 +702,10 @@ static void update_7seg(struct mipscep_fb_s* s, uint32_t val)
 }
 
 
-static void mipscep_periph_write(void *opaque, hwaddr addr, 
+static void riscv_cep_periph_write(void *opaque, hwaddr addr, 
                                     uint64_t val, unsigned int size)
 {
-    struct mipscep_fb_s *s = (struct mipscep_fb_s*) opaque; 
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s*) opaque; 
     int i;
 
     switch(addr) {
@@ -742,7 +742,7 @@ static void mipscep_periph_write(void *opaque, hwaddr addr,
    }
 }
 
-void mipscep_fb_reset(struct mipscep_fb_s *s)
+void riscv_cep_fb_reset(struct riscv_cep_fb_s *s)
 {
     memset(s->periph_sta, 0, sizeof(s->periph_sta));
     s->r7segs_mode = R7SEGS_CTL_HALF_LOW;
@@ -752,45 +752,45 @@ void mipscep_fb_reset(struct mipscep_fb_s *s)
     update_7seg(s, 0);
 }
 
-static const GraphicHwOps mipscep_board_ops = {
-    .invalidate  = mipscep_board_invalidate_display,
-    .gfx_update  = mipscep_board_update_display,
+static const GraphicHwOps riscv_cep_board_ops = {
+    .invalidate  = riscv_cep_board_invalidate_display,
+    .gfx_update  = riscv_cep_board_update_display,
 };
 
-static const GraphicHwOps mipscep_fb_ops = {
-    .invalidate  = mipscep_fb_invalidate_display2,
-    .gfx_update  = mipscep_fb_update_display,
+static const GraphicHwOps riscv_cep_fb_ops = {
+    .invalidate  = riscv_cep_fb_invalidate_display2,
+    .gfx_update  = riscv_cep_fb_update_display,
 };
-static const MemoryRegionOps mipscep_periph_op = {
-    .read = mipscep_periph_read,
-    .write = mipscep_periph_write,
+static const MemoryRegionOps riscv_cep_periph_op = {
+    .read = riscv_cep_periph_read,
+    .write = riscv_cep_periph_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-void mipscep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
+void riscv_cep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
                      hwaddr periph_offset, qemu_irq pushbtn_irq)
 {
-    struct mipscep_fb_s *s = (struct mipscep_fb_s *)
-            g_malloc0(sizeof(struct mipscep_fb_s));
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s *)
+            g_malloc0(sizeof(struct riscv_cep_fb_s));
 
     s->vram_size = VRAM_SIZE;
     s->vram = g_malloc0(VRAM_SIZE);
 
-    s->con_board = graphic_console_init(NULL, 0, &mipscep_board_ops, s);
-    s->mouse_hdl = qemu_add_mouse_event_handler(mipscep_fb_mouse_event, 
-                                                s, 1, "mipscep_fb mouse");
-    s->con_fb = graphic_console_init(NULL, 0, &mipscep_fb_ops, s);
+    s->con_board = graphic_console_init(NULL, 0, &riscv_cep_board_ops, s);
+    s->mouse_hdl = qemu_add_mouse_event_handler(riscv_cep_fb_mouse_event, 
+                                                s, 1, "riscv_cep_fb mouse");
+    s->con_fb = graphic_console_init(NULL, 0, &riscv_cep_fb_ops, s);
 
     s->pushbtn_irq = pushbtn_irq;
 
-    memory_region_init_ram_ptr(&s->mem_vram, NULL , "mipscep_fb_vram",
+    memory_region_init_ram_ptr(&s->mem_vram, NULL , "riscv_cep_fb_vram",
                                s->vram_size, s->vram);
     memory_region_add_subregion(sysmem, vram_offset, &s->mem_vram);
     memory_region_set_log(&s->mem_vram, true, DIRTY_MEMORY_VGA);
 
-    memory_region_init_io(&s->mem_periph, NULL, &mipscep_periph_op, s,
-                          "mipscep_fb_periph", 0x20);
+    memory_region_init_io(&s->mem_periph, NULL, &riscv_cep_periph_op, s,
+                          "riscv_cep_fb_periph", 0x20);
     memory_region_add_subregion(sysmem, periph_offset, &s->mem_periph);
 
-    mipscep_fb_reset(s);
+    riscv_cep_fb_reset(s);
 }
