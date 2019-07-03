@@ -145,7 +145,7 @@ static void riscv_cep_soc_realize(DeviceState *dev, Error **errp)
         memmap[CEP_CLINT].size, smp_cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 
-       mipscep_fb_init(system_memory, memmap[CEP_VRAM].base, memmap[CEP_PERIPHS].base, qdev_get_gpio_in(DEVICE(s->plic), CEP_PUSH_BUTTON_IRQ));
+       riscv_cep_fb_init(system_memory, memmap[CEP_VRAM].base, memmap[CEP_PERIPHS].base, qdev_get_gpio_in(DEVICE(s->plic), CEP_PUSH_BUTTON_IRQ));
 }
 
 static void riscv_cep_machine_init(MachineClass *mc)
