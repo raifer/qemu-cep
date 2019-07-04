@@ -58,9 +58,10 @@ static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;
 } cep_memmap[] = {
-    [CEP_BRAM] =     { 0x0,        0x0 }, // taille dimensionée par la ligne de commande
-    [CEP_CLINT] =    { 0x2000000,  0x10000 },
-    [CEP_PLIC] =     { 0xc000000,  0x4000000 },
+    [CEP_BRAM] =     { 0x0,        0x0 }, // Taille dimensionnée par la ligne de commande (Par exemple : '-m size=24' : fixe à 24Mo) 
+                                          // ATTENTION: Une taille supérieure à 32 Mo sera refusée car cela occasionnerait un overlapp avec le CLINT.
+    [CEP_CLINT] =    { 0x02000000, 0x10000 },
+    [CEP_PLIC] =     { 0x0c000000, 0x4000000 },
     [CEP_UART0] =    { 0x10013000, 0x1000 },
     [CEP_PERIPHS] =  { 0x30000000, 0x20 },
     [CEP_VRAM] =     { 0x80000000, 0x0 }, // taille dimensionée à l'intérieur du framebuffer
@@ -79,6 +80,15 @@ static target_ulong load_kernel(const char *kernel_filename)
     return kernel_entry;
 }
 
+static void check_ram_size(int size) 
+{
+    const struct MemmapEntry *memmap = cep_memmap;
+    if (size > memmap[CEP_CLINT].base) {
+        printf("ERROR: Program memory is too big (will overlap with CLINT). Use '-m size=<size in Mo>' as a command line option to set the size. Max allowed : 32 Mo.\n");
+        exit(-1);
+    }
+}
+
 static void riscv_cep_init(MachineState *machine)
 {
     const struct MemmapEntry *memmap = cep_memmap;
@@ -94,6 +104,7 @@ static void riscv_cep_init(MachineState *machine)
     object_property_set_bool(OBJECT(&s->soc), true, "realized",
                             &error_abort);
 
+    check_ram_size(machine->ram_size);
     /* register RAM */
     memory_region_init_ram(main_mem, NULL, "riscv.sifive.u.ram",
                            machine->ram_size, &error_fatal);
