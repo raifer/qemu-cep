@@ -654,16 +654,16 @@ static void riscv_cep_kbd_event(void *opaque, int keycode)
     //printf("keycode : 0x%x\n", keycode);
     switch(keycode) {
         case KBD_CODE_LEFT:
-            press_button(s, GUI_PUSHBTN0, 1);
-            break;
-        case KBD_CODE_LEFT_RELEASE:
-            press_button(s, GUI_PUSHBTN0, 0);
-            break;
-        case KBD_CODE_RIGHT:
             press_button(s, GUI_PUSHBTN1, 1);
             break;
-        case KBD_CODE_RIGHT_RELEASE:
+        case KBD_CODE_LEFT_RELEASE:
             press_button(s, GUI_PUSHBTN1, 0);
+            break;
+        case KBD_CODE_RIGHT:
+            press_button(s, GUI_PUSHBTN0, 1);
+            break;
+        case KBD_CODE_RIGHT_RELEASE:
+            press_button(s, GUI_PUSHBTN0, 0);
             break;
         case KBD_CODE_HIGH:
         case KBD_CODE_SPACE:
@@ -748,8 +748,9 @@ static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr,
                 s->periph_sta[i] = 0;
             }
         }
+        val <<= 12;
 
-        for(i = GUI_SWITCH7; i >= GUI_SWITCH0; i--) {
+        for(i = GUI_SWITCH3; i >= GUI_SWITCH0; i--) {
             val <<= 1;
             val |= !!(s->periph_sta[i]);
         }
