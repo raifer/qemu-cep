@@ -59,6 +59,19 @@
 
 #define PUSHBTN_PERSISTANCE     3      /* Stay displayed red for 3 frames when in
                                           int mode */
+#define KBD_RELEASE_DIFF        0x80
+
+#define KBD_CODE_LEFT           0x4B
+#define KBD_CODE_RIGHT          0x4D
+#define KBD_CODE_HIGH           0x48
+#define KBD_CODE_DOWN           0x50
+#define KBD_CODE_SPACE          0x39
+#define KBD_CODE_LEFT_RELEASE   KBD_RELEASE_DIFF + KBD_CODE_LEFT
+#define KBD_CODE_RIGHT_RELEASE  KBD_RELEASE_DIFF + KBD_CODE_RIGHT
+#define KBD_CODE_HIGH_RELEASE   KBD_RELEASE_DIFF + KBD_CODE_HIGH
+#define KBD_CODE_DOWN_RELEASE   KBD_RELEASE_DIFF + KBD_CODE_DOWN
+#define KBD_CODE_SPACE_RELEASE  KBD_RELEASE_DIFF + KBD_CODE_SPACE
+
 
 enum gui_invalidate {
 	INVAL_FB       = 1 << 0,
@@ -282,6 +295,7 @@ struct riscv_cep_fb_s {
     QemuConsole *con_fb;
     QEMUPutMouseEntry *mouse_hdl;  
     QEMUPutMouseEntry *mouse_hdl_fb;  
+    QEMUPutKbdEntry   *kbd_hdl;
 
     enum gui_invalidate invalidate;
     enum gui_invalidate invalidate_fb;
@@ -585,7 +599,6 @@ static void riscv_cep_fb_update_display(void *opaque)
 }
 
 
-
 static void guielt_click_event(struct riscv_cep_fb_s *s, 
                                const struct gui_elt *e, int b)
 {
@@ -614,11 +627,63 @@ static void guielt_click_event(struct riscv_cep_fb_s *s,
     }
 }
 
+
 static inline int cursor_is_in(int x, int y, const struct gui_elt *e)
 {
     return ((x >= e->x) && (y >= e->y) &&
             (x < e->x + e->s[0]->w) && (y < e->y + e->s[0]->h));
 }
+
+
+static void press_button(struct riscv_cep_fb_s *s, int id, int press)
+{
+    if (s->pushbtn_mode == PUSHBTN_CTL_POLL) {
+        s->periph_sta[id] = press;
+    } else if(press) {
+        qemu_irq_raise(s->pushbtn_irq);
+        s->persistance[id] = PUSHBTN_PERSISTANCE;
+        s->periph_sta[id] = press;
+    }
+    s->invalidate |= INVAL_PUSHBTN;
+}
+
+
+static void riscv_cep_kbd_event(void *opaque, int keycode)
+{
+    struct riscv_cep_fb_s *s = (struct riscv_cep_fb_s*) opaque; 
+    //printf("keycode : 0x%x\n", keycode);
+    switch(keycode) {
+        case KBD_CODE_LEFT:
+            press_button(s, GUI_PUSHBTN0, 1);
+            break;
+        case KBD_CODE_LEFT_RELEASE:
+            press_button(s, GUI_PUSHBTN0, 0);
+            break;
+        case KBD_CODE_RIGHT:
+            press_button(s, GUI_PUSHBTN1, 1);
+            break;
+        case KBD_CODE_RIGHT_RELEASE:
+            press_button(s, GUI_PUSHBTN1, 0);
+            break;
+        case KBD_CODE_HIGH:
+        case KBD_CODE_SPACE:
+            press_button(s, GUI_PUSHBTN2, 1);
+            break;
+        case KBD_CODE_HIGH_RELEASE:
+        case KBD_CODE_SPACE_RELEASE:
+            press_button(s, GUI_PUSHBTN2, 0);
+            break;
+        case KBD_CODE_DOWN:
+            press_button(s, GUI_PUSHBTN3, 1);
+            break;
+        case KBD_CODE_DOWN_RELEASE:
+            press_button(s, GUI_PUSHBTN3, 0);
+            break;
+        default:
+            break;
+    }
+}
+
 
 static void riscv_cep_fb_mouse_event(void *opaque, int dx, int dy, int dz, 
                                    int bstate)
@@ -708,8 +773,21 @@ static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr,
 static uint64_t riscv_cep_fb_ctrl_read(void *opaque, hwaddr addr, 
                                     unsigned int size)
 {
+    struct riscv_cep_fb_ctrl_s *ctrl = (struct riscv_cep_fb_ctrl_s*) opaque; 
+    uint32_t val;
 
-    return 0;
+    switch(addr) {
+    case 0:
+        val = ctrl->Reg_MODE;
+        break;
+    case 4:
+        val = ctrl->Reg_ADDR;
+        break;
+    default:
+        val=0;
+    }
+
+    return val;
 }
 
 
@@ -868,6 +946,7 @@ void riscv_cep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
     s->con_board = graphic_console_init(NULL, 0, &riscv_cep_board_ops, s);
     s->mouse_hdl = qemu_add_mouse_event_handler(riscv_cep_fb_mouse_event, 
                                                 s, 1, "riscv_cep_fb mouse");
+    s->kbd_hdl = qemu_add_kbd_event_handler(riscv_cep_kbd_event, s);
     s->con_fb = graphic_console_init(NULL, 0, &riscv_cep_fb_ops, s);
 
     s->pushbtn_irq = pushbtn_irq;
