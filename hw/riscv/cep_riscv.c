@@ -119,18 +119,20 @@ static void riscv_cep_init(MachineState *machine)
 
 static void riscv_cep_soc_init(Object *obj)
 {
+    MachineState *ms = MACHINE(qdev_get_machine());
     CepSoCState *s = RISCV_CEP_SOC(obj);
 
     object_initialize_child(obj, "cpus", &s->cpus, sizeof(s->cpus),
                             TYPE_RISCV_HART_ARRAY, &error_abort, NULL);
     object_property_set_str(OBJECT(&s->cpus), SIFIVE_U_CPU, "cpu-type",
                             &error_abort);
-    object_property_set_int(OBJECT(&s->cpus), smp_cpus, "num-harts",
+    object_property_set_int(OBJECT(&s->cpus), ms->smp.cpus, "num-harts",
                             &error_abort);
 }
 
 static void riscv_cep_soc_realize(DeviceState *dev, Error **errp)
 {
+    MachineState *ms = MACHINE(qdev_get_machine());
     CepSoCState *s = RISCV_CEP_SOC(dev);
     const struct MemmapEntry *memmap = cep_memmap;
     MemoryRegion *system_memory = get_system_memory();
@@ -153,7 +155,7 @@ static void riscv_cep_soc_realize(DeviceState *dev, Error **errp)
     sifive_uart_create(system_memory, memmap[CEP_UART0].base,
         serial_hd(0), qdev_get_gpio_in(DEVICE(s->plic), CEP_UART0_IRQ));
     sifive_clint_create(memmap[CEP_CLINT].base,
-        memmap[CEP_CLINT].size, smp_cpus,
+        memmap[CEP_CLINT].size, ms->smp.cpus,
         SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
 
        riscv_cep_fb_init(system_memory, memmap[CEP_VRAM].base, memmap[CEP_PERIPHS].base, qdev_get_gpio_in(DEVICE(s->plic), CEP_PUSH_BUTTON_IRQ));
