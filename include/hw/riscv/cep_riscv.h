@@ -34,7 +34,8 @@ enum {
     CEP_UART0,
     CEP_PERIPHS,
     CEP_VRAM,
-    CEP_BRAM
+    CEP_BRAM,
+    CEP_TEST
 };
 
 enum {

@@ -27,15 +27,6 @@
 /* Contains images data */
 #include "hw/riscv/riscvcep_fbres.h"
 
-#define FB_WIDTH                640
-#define FB_HEIGHT               480
-
-//#define VRAM_OFFSET_X           20
-//#define VRAM_OFFSET_Y           20
-//#define VVGA_WIDTH		      320
-//#define VRAM_WIDTH              512
-//#define VRAM_HEIGHT             240
-
 #define VRAM_WIDTH                        1920
 #define VRAM_HEIGHT                       1080
 #define VRAM_WIDTH_EFFECTIVE_DEFAULT      1280
@@ -92,22 +83,30 @@ enum gui_elt_type {
 };
 
 
+/* Useless for now */
 #define GUI_7SEG(id) \
     GUI_7SEG## id ##_a, GUI_7SEG## id ##_b, GUI_7SEG## id ##_c, GUI_7SEG## id ##_d, \
     GUI_7SEG## id ##_e, GUI_7SEG## id ##_f, GUI_7SEG## id ##_g, GUI_7SEG## id ##_dp 
 enum gui_elt_id {
     GUI_LED0, GUI_LED1, GUI_LED2, GUI_LED3,
+#if 0
     GUI_LED4, GUI_LED5, GUI_LED6, GUI_LED7, 
 
     GUI_7SEG(0), GUI_7SEG(1), GUI_7SEG(2), GUI_7SEG(3),
+#endif
 
     GUI_SWITCH0, GUI_SWITCH1, GUI_SWITCH2, GUI_SWITCH3, 
+#if 0
     GUI_SWITCH4, GUI_SWITCH5, GUI_SWITCH6, GUI_SWITCH7, 
+#endif
 
     GUI_PUSHBTN0, GUI_PUSHBTN1, GUI_PUSHBTN2, GUI_PUSHBTN3, 
 
     GUI_ELT_NUM
 };
+#define GUI_LAST_SWITCH  GUI_SWITCH3
+#define GUI_LAST_LED     GUI_LED3
+#define GUI_LAST_PUSHBTN GUI_PUSHBTN3
 #undef GUI_7SEG
 
 enum gui_elt_status {
@@ -171,38 +170,33 @@ struct gui_elt {
         .clickable  = 1,                \
     }
 
+/*
+ * Zybo : 4 leds on top of the 4 switches, 4 push buttons on the side
+ * Pynq : 4 leds on top of the 4 push buttons plus 2 leds on top of the 2 switches
+ * For now, zybo, ...
+ */
 static const struct gui_elt gui_elts[] = {
-    DEFINE_LED(GUI_LED7, 356, 404),
-    DEFINE_LED(GUI_LED6, 369, 404),
-    DEFINE_LED(GUI_LED5, 382, 404),
-    DEFINE_LED(GUI_LED4, 395, 404),
-    DEFINE_LED(GUI_LED3, 408, 404),
-    DEFINE_LED(GUI_LED2, 421, 404),
-    DEFINE_LED(GUI_LED1, 434, 404),
-    DEFINE_LED(GUI_LED0, 447, 404),
+    DEFINE_LED(GUI_LED3,  3, 5),
+    DEFINE_LED(GUI_LED2, 19, 5),
+    DEFINE_LED(GUI_LED1, 35, 5),
+    DEFINE_LED(GUI_LED0, 51, 5),
 
-    DEFINE_7SEG(GUI_7SEG3, 502, 392),
-    DEFINE_7SEG(GUI_7SEG2, 527, 392),
-    DEFINE_7SEG(GUI_7SEG1, 552, 392),
-    DEFINE_7SEG(GUI_7SEG0, 577, 392),
+    DEFINE_SWITCH(GUI_SWITCH3,  2, 29),
+    DEFINE_SWITCH(GUI_SWITCH2, 18, 29),
+    DEFINE_SWITCH(GUI_SWITCH1, 34, 29),
+    DEFINE_SWITCH(GUI_SWITCH0, 50, 29),
 
-    DEFINE_SWITCH(GUI_SWITCH7, 474, 426),
-    DEFINE_SWITCH(GUI_SWITCH6, 490, 426),
-    DEFINE_SWITCH(GUI_SWITCH5, 506, 426),
-    DEFINE_SWITCH(GUI_SWITCH4, 522, 426),
-    DEFINE_SWITCH(GUI_SWITCH3, 538, 426),
-    DEFINE_SWITCH(GUI_SWITCH2, 554, 426),
-    DEFINE_SWITCH(GUI_SWITCH1, 570, 426),
-    DEFINE_SWITCH(GUI_SWITCH0, 586, 426),
-
-    DEFINE_PUSHBTN(GUI_PUSHBTN3, 358, 427),
-    DEFINE_PUSHBTN(GUI_PUSHBTN2, 358+25, 427),
-    DEFINE_PUSHBTN(GUI_PUSHBTN1, 358+25*2, 427),
-    DEFINE_PUSHBTN(GUI_PUSHBTN0, 358+25*3, 427),
+    DEFINE_PUSHBTN(GUI_PUSHBTN3,  77, 30),
+    DEFINE_PUSHBTN(GUI_PUSHBTN2, 102, 30),
+    DEFINE_PUSHBTN(GUI_PUSHBTN1, 127, 30),
+    DEFINE_PUSHBTN(GUI_PUSHBTN0, 152, 30),
 };
 
 
-/* 7seg mapping */
+/* 7seg mapping
+ * Useless for now, but who knows, ... */
+
+#if 0
 enum { SEG_A = 0, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G, SEG_DP, NUM_SEG };
 static int const r7segs_mapping[][NUM_SEG] = {
     [0x0] = { 
@@ -270,6 +264,7 @@ static int const r7segs_mapping[][NUM_SEG] = {
         [SEG_E] = 1, [SEG_F] = 1, [SEG_G] = 1, [SEG_DP] = 0,
     },
 };
+#endif
 
 struct riscv_cep_fb_s ;
 
@@ -284,12 +279,15 @@ struct riscv_cep_fb_s {
     MemoryRegion mem_vram;
     uint8_t *vram;
 
-    MemoryRegion mem_periph;
-
     uint32_t vram_size;
     uint32_t vram_size_effective;
     uint32_t vram_width_effective;
     uint32_t vram_heigth_effective;
+
+    MemoryRegion mem_periph;
+    uint32_t board_size;
+    uint32_t board_width_effective;
+    uint32_t board_heigth_effective;
 
     QemuConsole *con_board;
     QemuConsole *con_fb;
@@ -314,7 +312,6 @@ struct riscv_cep_fb_s {
                                      to let the user see the red button
                                      even if the software acknowledge the irq
                                      immediately */
-
 
     qemu_irq pushbtn_irq;
 
@@ -383,7 +380,7 @@ static inline void draw_img(struct riscv_cep_fb_s *s, const struct img_data *img
 
 static inline void draw_bg(struct riscv_cep_fb_s *s)
 {
-    draw_img(s, &img_cep_fb_bg, 0, 0);
+    draw_img(s, &img_cep_board_bg, 0, 0);
 }
 
 static inline uint32_t set_hdmi_mode(struct riscv_cep_fb_s *s, uint32_t mode) {
@@ -432,33 +429,36 @@ static inline void draw_vram(struct riscv_cep_fb_s *s)
         }
     }
 }
+
 static inline void draw_guielt(struct riscv_cep_fb_s *s)
 {
     enum gui_elt_id i;
 
     if(s->invalidate & INVAL_LEDS) {
-	    for(i = GUI_LED0; i <= GUI_LED7; i++) {
+	    for(i = GUI_LED0; i <= GUI_LAST_LED; i++) {
 		    draw_img(s, gui_elts[i].s[s->periph_sta[i]],
 			     gui_elts[i].x, gui_elts[i].y);
 	    }
     }
 
+#if 0
     if(s->invalidate & INVAL_7SEGS) {
 	    for(i = GUI_7SEG0_a; i <= GUI_7SEG3_dp; i++) {
 		    draw_img(s, gui_elts[i].s[s->periph_sta[i]],
 			     gui_elts[i].x, gui_elts[i].y);
 	    }
     }
+#endif
 
     if(s->invalidate & INVAL_SWITCHES) {
-	    for(i = GUI_SWITCH0; i <= GUI_SWITCH7; i++) {
+	    for(i = GUI_SWITCH0; i <= GUI_LAST_SWITCH; i++) {
 		    draw_img(s, gui_elts[i].s[s->periph_sta[i]],
 			     gui_elts[i].x, gui_elts[i].y);
 	    }
     }
 
     if(s->invalidate & INVAL_PUSHBTN) {
-	    for(i = GUI_PUSHBTN0; i <= GUI_PUSHBTN3; i++) {
+	    for(i = GUI_PUSHBTN0; i <= GUI_LAST_PUSHBTN; i++) {
 		    draw_img(s, gui_elts[i].s[s->periph_sta[i] || s->persistance[i]],
 			     gui_elts[i].x, gui_elts[i].y);
 	    }
@@ -471,45 +471,40 @@ static inline void get_redraw_bb(const struct riscv_cep_fb_s *s, int *x0, int *y
 {
     if(s->invalidate & INVAL_BG) {
         *x0 = *y0 = 0;
-        *x1 = FB_WIDTH;
-        *y1 = FB_HEIGHT;
+        *x1 = img_cep_board_bg.w;
+        *y1 = img_cep_board_bg.h;
         return;
     }
 
-    *x0 = FB_HEIGHT; *y0 = FB_HEIGHT;
+    *x0 = img_cep_board_bg.w; *y0 = img_cep_board_bg.h;
     *x1 = *y1 = 0;
 
-   // if(s->invalidate & INVAL_FB) {
-   //     *x0 = MIN(*x0, VRAM_OFFSET_X);
-   //     *y0 = MIN(*y0, VRAM_OFFSET_Y);
-   //     *x1 = MAX(*x1, VRAM_OFFSET_X + VVGA_WIDTH);
-   //     *y1 = MAX(*y1, VRAM_OFFSET_Y + VRAM_HEIGHT);
-   // }
-
     if(s->invalidate & INVAL_LEDS) {
-        *x0 = MIN(*x0, gui_elts[GUI_LED7].x);
-        *y0 = MIN(*y0, gui_elts[GUI_LED7].y);
+        *x0 = MIN(*x0, gui_elts[GUI_LAST_LED].x);
+        *y0 = MIN(*y0, gui_elts[GUI_LAST_LED].y);
         *x1 = MAX(*x1, gui_elts[GUI_LED0].x + gui_elts[GUI_LED0].s[0]->w);
         *y1 = MAX(*y1, gui_elts[GUI_LED0].y + gui_elts[GUI_LED0].s[0]->h);
     }
 
+#if 0
     if(s->invalidate & INVAL_7SEGS) {
         *x0 = MIN(*x0, gui_elts[GUI_7SEG3_a].x);
         *y0 = MIN(*y0, gui_elts[GUI_7SEG3_a].y);
         *x1 = MAX(*x1, gui_elts[GUI_7SEG0_dp].x + gui_elts[GUI_7SEG0_dp].s[0]->w);
         *y1 = MAX(*y1, gui_elts[GUI_7SEG0_dp].y + gui_elts[GUI_7SEG0_dp].s[0]->h);
     }
+#endif
 
     if(s->invalidate & INVAL_SWITCHES) {
-        *x0 = MIN(*x0, gui_elts[GUI_SWITCH7].x);
-        *y0 = MIN(*y0, gui_elts[GUI_SWITCH7].y);
+        *x0 = MIN(*x0, gui_elts[GUI_LAST_SWITCH].x);
+        *y0 = MIN(*y0, gui_elts[GUI_LAST_SWITCH].y);
         *x1 = MAX(*x1, gui_elts[GUI_SWITCH0].x + gui_elts[GUI_SWITCH0].s[0]->w);
         *y1 = MAX(*y1, gui_elts[GUI_SWITCH0].y + gui_elts[GUI_SWITCH0].s[0]->h);
     }
 
     if(s->invalidate & INVAL_PUSHBTN) {
-        *x0 = MIN(*x0, gui_elts[GUI_PUSHBTN3].x);
-        *y0 = MIN(*y0, gui_elts[GUI_PUSHBTN3].y);
+        *x0 = MIN(*x0, gui_elts[GUI_LAST_PUSHBTN].x);
+        *y0 = MIN(*y0, gui_elts[GUI_LAST_PUSHBTN].y);
         *x1 = MAX(*x1, gui_elts[GUI_PUSHBTN0].x + gui_elts[GUI_PUSHBTN0].s[0]->w);
         *y1 = MAX(*y1, gui_elts[GUI_PUSHBTN0].y + gui_elts[GUI_PUSHBTN0].s[0]->h);
     }
@@ -529,17 +524,19 @@ static void riscv_cep_board_update_display(void *opaque)
 
     surface = qemu_console_surface(s->con_board);
 
-    if (surface_width(surface) != FB_WIDTH ||
-        surface_height(surface) != FB_HEIGHT) {
+    if (surface_width(surface) != img_cep_board_bg.w ||
+        surface_height(surface) != img_cep_board_bg.h) {
         qemu_console_resize(s->con_board,
-                            FB_WIDTH, FB_HEIGHT);
+                            img_cep_board_bg.w, img_cep_board_bg.h);
         s->invalidate = INVAL_ALL;
     }
 
+#if 0
+    /* Let's make sure this is useless */
     if(s->invalidate & INVAL_ALL) {
         fill_draw_info(s);
     }
-
+#endif
 
     for(i = GUI_PUSHBTN0; i <= GUI_PUSHBTN3; i++) {
         if (s->persistance[i]) {
@@ -552,7 +549,6 @@ static void riscv_cep_board_update_display(void *opaque)
 
     if(s->invalidate & INVAL_BG) {
 	    draw_bg(s);
-
 	    /* Ensure we redraw everything */
 	    s->invalidate = INVAL_ALL;
     }
@@ -597,7 +593,6 @@ static void riscv_cep_fb_update_display(void *opaque)
 
     s->invalidate_fb = 0;
 }
-
 
 static void guielt_click_event(struct riscv_cep_fb_s *s, 
                                const struct gui_elt *e, int b)
@@ -694,8 +689,8 @@ static void riscv_cep_fb_mouse_event(void *opaque, int dx, int dy, int dz,
     const struct gui_elt *new_was_in = NULL;
 
     /* QEMU reports absolute position btw 0 and 2^15-1 */
-    int x = (dx * FB_WIDTH) >> 15;
-    int y = (dy * FB_HEIGHT) >> 15;
+    int x = (dx * img_cep_board_bg.w) >> 15;
+    int y = (dy * img_cep_board_bg.h) >> 15;
 
     s->last_bstate = bstate;
 
@@ -740,7 +735,7 @@ static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr,
     switch(addr) {
     case REG_SWITCHES:
         val = 0;
-        for(i = GUI_PUSHBTN3; i >= GUI_PUSHBTN0; i--) {
+        for(i = GUI_LAST_PUSHBTN; i >= GUI_PUSHBTN0; i--) {
             val <<= 1;
             val |= !!(s->periph_sta[i]);
             if(s->pushbtn_mode == PUSHBTN_CTL_INT) {
@@ -750,7 +745,7 @@ static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr,
         }
         val <<= 12;
 
-        for(i = GUI_SWITCH3; i >= GUI_SWITCH0; i--) {
+        for(i = GUI_LAST_SWITCH; i >= GUI_SWITCH0; i--) {
             val <<= 1;
             val |= !!(s->periph_sta[i]);
         }
@@ -792,6 +787,7 @@ static uint64_t riscv_cep_fb_ctrl_read(void *opaque, hwaddr addr,
 }
 
 
+#if 0
 static void update_7seg(struct riscv_cep_fb_s* s, uint32_t val)
 {
     int print_base = 0, i;
@@ -828,6 +824,7 @@ static void update_7seg(struct riscv_cep_fb_s* s, uint32_t val)
         }
     }
 }
+#endif
 
 
 static void riscv_cep_periph_write(void *opaque, hwaddr addr, 
@@ -838,13 +835,14 @@ static void riscv_cep_periph_write(void *opaque, hwaddr addr,
 
     switch(addr) {
     case REG_LEDS:
-        for(i = GUI_LED0; i <= GUI_LED7; i++) {
+        for(i = GUI_LED0; i <= GUI_LAST_LED; i++) {
             s->periph_sta[i] = (val & 1);
             val >>= 1;
         }
         s->invalidate |= INVAL_LEDS;
         break;
 
+#if 0
     case REG_7SEGS:
         update_7seg(s, (uint32_t)val);
         s->invalidate |= INVAL_7SEGS;
@@ -856,6 +854,7 @@ static void riscv_cep_periph_write(void *opaque, hwaddr addr,
             s->invalidate |= INVAL_7SEGS;
         }
         break;
+#endif
 
     case REG_PUSHBTN_CTL:
         if(val <= PUSHBTN_CTL_INT) {
@@ -895,7 +894,9 @@ void riscv_cep_fb_reset(struct riscv_cep_fb_s *s)
     s->pushbtn_mode = PUSHBTN_CTL_POLL;
     s->invalidate = INVAL_ALL;
 
+#if 0
     update_7seg(s, 0);
+#endif
 }
 
 static const GraphicHwOps riscv_cep_board_ops = {
@@ -921,7 +922,7 @@ static const MemoryRegionOps riscv_cep_fb_ctrl_op = {
 };
 
 
-void riscv_cep_fb_ctrl_init(struct riscv_cep_fb_ctrl_s **ptr, MemoryRegion *sysmem, hwaddr fb_ctrl_offset); 
+void riscv_cep_fb_ctrl_init(struct riscv_cep_fb_ctrl_s **ptr, MemoryRegion *sysmem, hwaddr fb_ctrl_offset);
 void riscv_cep_fb_ctrl_init(struct riscv_cep_fb_ctrl_s **ptr, MemoryRegion *sysmem, hwaddr fb_ctrl_offset) 
 {
     *ptr = (struct riscv_cep_fb_ctrl_s *)
