@@ -41,8 +41,9 @@
 #include "hw/riscv/riscv_hart.h"
 #include "hw/riscv/sifive_plic.h"
 #include "hw/riscv/sifive_clint.h"
-#include "hw/riscv//sifive_uart.h"
+#include "hw/riscv/sifive_uart.h"
 #include "hw/riscv/sifive_prci.h"
+#include "hw/riscv/sifive_test.h"
 #include "chardev/char.h"
 #include "sysemu/arch_init.h"
 #include "sysemu/device_tree.h"
@@ -58,13 +59,14 @@ static const struct MemmapEntry {
     hwaddr base;
     hwaddr size;
 } cep_memmap[] = {
-    [CEP_BRAM] =     { 0x0,        0x0 }, // Taille dimensionnée par la ligne de commande (Par exemple : '-m size=24' : fixe à 24Mo) 
+    [CEP_BRAM] =     { 0x00001000, 0x0 }, // Taille dimensionnée par la ligne de commande (Par exemple : '-m size=24' : fixe à 24Mo) 
                                           // ATTENTION: Une taille supérieure à 32 Mo sera refusée car cela occasionnerait un overlapp avec le CLINT.
     [CEP_CLINT] =    { 0x02000000, 0x10000 },
     [CEP_PLIC] =     { 0x0c000000, 0x4000000 },
     [CEP_UART0] =    { 0x10013000, 0x1000 },
     [CEP_PERIPHS] =  { 0x30000000, 0x20 },
     [CEP_VRAM] =     { 0x80000000, 0x0 }, // taille dimensionée à l'intérieur du framebuffer
+    [CEP_EXIT] =     { 0xfffffff8, 0x8 },
 };
 
 static target_ulong load_kernel(const char *kernel_filename)
@@ -142,23 +144,32 @@ static void riscv_cep_soc_realize(DeviceState *dev, Error **errp)
 
     /* MMIO */
     s->plic = sifive_plic_create(memmap[CEP_PLIC].base,
-        (char *)SIFIVE_U_PLIC_HART_CONFIG,
-        SIFIVE_U_PLIC_NUM_SOURCES,
-        SIFIVE_U_PLIC_NUM_PRIORITIES,
-        SIFIVE_U_PLIC_PRIORITY_BASE,
-        SIFIVE_U_PLIC_PENDING_BASE,
-        SIFIVE_U_PLIC_ENABLE_BASE,
-        SIFIVE_U_PLIC_ENABLE_STRIDE,
-        SIFIVE_U_PLIC_CONTEXT_BASE,
-        SIFIVE_U_PLIC_CONTEXT_STRIDE,
-        memmap[CEP_PLIC].size);
-    sifive_uart_create(system_memory, memmap[CEP_UART0].base,
-        serial_hd(0), qdev_get_gpio_in(DEVICE(s->plic), CEP_UART0_IRQ));
+                                 (char *)SIFIVE_U_PLIC_HART_CONFIG,
+                                 SIFIVE_U_PLIC_NUM_SOURCES,
+                                 SIFIVE_U_PLIC_NUM_PRIORITIES,
+                                 SIFIVE_U_PLIC_PRIORITY_BASE,
+                                 SIFIVE_U_PLIC_PENDING_BASE,
+                                 SIFIVE_U_PLIC_ENABLE_BASE,
+                                 SIFIVE_U_PLIC_ENABLE_STRIDE,
+                                 SIFIVE_U_PLIC_CONTEXT_BASE,
+                                 SIFIVE_U_PLIC_CONTEXT_STRIDE,
+                                 memmap[CEP_PLIC].size);
+    sifive_uart_create(system_memory,
+                       memmap[CEP_UART0].base,
+                       serial_hd(0),
+                       qdev_get_gpio_in(DEVICE(s->plic), CEP_UART0_IRQ));
     sifive_clint_create(memmap[CEP_CLINT].base,
-        memmap[CEP_CLINT].size, ms->smp.cpus,
-        SIFIVE_SIP_BASE, SIFIVE_TIMECMP_BASE, SIFIVE_TIME_BASE);
+                        memmap[CEP_CLINT].size,
+                        ms->smp.cpus,
+                        SIFIVE_SIP_BASE,
+                        SIFIVE_TIMECMP_BASE,
+                        SIFIVE_TIME_BASE);
+    sifive_test_create(memmap[CEP_EXIT].base);
 
-       riscv_cep_fb_init(system_memory, memmap[CEP_VRAM].base, memmap[CEP_PERIPHS].base, qdev_get_gpio_in(DEVICE(s->plic), CEP_PUSH_BUTTON_IRQ));
+    riscv_cep_fb_init(system_memory,
+                      memmap[CEP_VRAM].base,
+                      memmap[CEP_PERIPHS].base,
+                      qdev_get_gpio_in(DEVICE(s->plic), CEP_PUSH_BUTTON_IRQ));
 }
 
 static void riscv_cep_machine_init(MachineClass *mc)
@@ -166,6 +177,7 @@ static void riscv_cep_machine_init(MachineClass *mc)
     mc->desc = "RISC-V Board for the “cep” class at Ensimag";
     mc->init = riscv_cep_init;
     mc->max_cpus = 1; /* We use a simple uniprocessor platform */
+    mc->default_ram_size = 32768; /* 32 k is what we have on zybo */
 }
 
 DEFINE_MACHINE("cep", riscv_cep_machine_init)

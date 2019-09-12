@@ -35,7 +35,7 @@ enum {
     CEP_PERIPHS,
     CEP_VRAM,
     CEP_BRAM,
-    CEP_TEST
+    CEP_EXIT
 };
 
 enum {
