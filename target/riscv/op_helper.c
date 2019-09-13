@@ -31,6 +31,37 @@ void QEMU_NORETURN riscv_raise_exception(CPURISCVState *env,
     CPUState *cs = env_cpu(env);
     qemu_log_mask(CPU_LOG_INT, "%s: %d\n", __func__, exception);
     cs->exception_index = exception;
+    /* CEP hack to brutally exit in case of exception to help our beloved students */
+    switch (exception) {
+       case 0:
+          fprintf(stderr, "Instruction address misaligned: pc=0x%08x\n", env->pc);
+          exit(1);
+       case 1: 
+          fprintf(stderr, "Instruction access fault: pc=0x%08x\n", env->pc);
+          exit(1);
+       case 2: 
+          fprintf(stderr, "Illegal instruction: pc=0x%08x\n", env->pc);
+          exit(1);
+       case 3: 
+          fprintf(stderr, "Breakpoint/watchpoint: pc=0x%08x\n", env->pc);
+          exit(1);
+       case 4: 
+          fprintf(stderr, "Load address misaligned: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          exit(1);
+       case 5: 
+          fprintf(stderr, "Load access fault: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          exit(1);
+       case 6: 
+          fprintf(stderr, "Store address misaligned: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          exit(1);
+       case 7: 
+          fprintf(stderr, "Store access fault: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          exit(1);
+       default:
+          fprintf(stderr, "Unexpected exception raised: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          exit(1);
+    }
+    /* End CEP hack */
     cpu_loop_exit_restore(cs, pc);
 }
 
