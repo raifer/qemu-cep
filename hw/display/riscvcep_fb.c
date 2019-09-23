@@ -27,12 +27,30 @@
 /* Contains images data */
 #include "hw/riscv/riscvcep_fbres.h"
 
-#define VRAM_WIDTH                        1920
-#define VRAM_HEIGHT                       1080
-#define VRAM_WIDTH_EFFECTIVE_DEFAULT      1280
-#define VRAM_HEIGHT_EFFECTIVE_DEFAULT     720
-#define VRAM_SIZE_EFFECTIVE_DEFAULT       (VRAM_WIDTH_EFFECTIVE_DEFAULT * VRAM_HEIGHT_EFFECTIVE_DEFAULT * 4)
-#define VRAM_SIZE                         (VRAM_WIDTH * VRAM_HEIGHT * 4)
+#define VRAM_WIDTH              1920
+#define VRAM_HEIGHT             1080
+#define VRAM_SIZE               (VRAM_WIDTH * VRAM_HEIGHT * 4)
+
+#define DISPLAY_MODE_720p       0
+#define DISPLAY_MODE_1080p      1
+
+// Choose default display mode here
+//#define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_720p
+#define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_1080p
+
+#if (DISPLAY_MODE_DEFAULT == DISPLAY_MODE_1080p) //1080p
+#define VRAM_WIDTH_EFFECTIVE    1920
+#define VRAM_HEIGHT_EFFECTIVE   1080
+#define HDMI_DEFAULT_MODE       19
+#elif (DISPLAY_MODE_DEFAULT == DISPLAY_MODE_720p) //720p
+#define VRAM_WIDTH_EFFECTIVE    1280
+#define VRAM_HEIGHT_EFFECTIVE   720
+#define HDMI_DEFAULT_MODE       4
+#else
+#error "ERROR: Unknown display mode"
+#endif
+
+#define VRAM_SIZE_EFFECTIVE    (VRAM_WIDTH_EFFECTIVE * VRAM_HEIGHT_EFFECTIVE * 4)
 
 #define REG_LEDS                0x0
 #define REG_SWITCHES            0x4
@@ -940,10 +958,10 @@ void riscv_cep_fb_init(MemoryRegion *sysmem, hwaddr vram_offset,
             g_malloc0(sizeof(struct riscv_cep_fb_s));
 
     s->vram_size           = VRAM_SIZE;
-    s->vram_size_effective = VRAM_SIZE_EFFECTIVE_DEFAULT;
+    s->vram_size_effective = VRAM_SIZE_EFFECTIVE;
     s->vram = g_malloc0(VRAM_SIZE);
 
-    set_hdmi_mode(s, 4);
+    set_hdmi_mode(s, HDMI_DEFAULT_MODE);
 
     s->con_board = graphic_console_init(NULL, 0, &riscv_cep_board_ops, s);
     s->mouse_hdl = qemu_add_mouse_event_handler(riscv_cep_fb_mouse_event, 
