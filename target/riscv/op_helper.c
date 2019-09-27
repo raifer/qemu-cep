@@ -57,10 +57,8 @@ void QEMU_NORETURN riscv_raise_exception(CPURISCVState *env,
        case 7: 
           fprintf(stderr, "Store access fault: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
           exit(1);
-       default:
-          fprintf(stderr, "Unexpected exception raised: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
-          exit(1);
     }
+    /* No default to catch strange cases: gdb needs this to go through ! */
     /* End CEP hack */
     cpu_loop_exit_restore(cs, pc);
 }
