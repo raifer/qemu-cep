@@ -53,18 +53,13 @@
 #define VRAM_SIZE_EFFECTIVE    (VRAM_WIDTH_EFFECTIVE * VRAM_HEIGHT_EFFECTIVE * 4)
 
 #define REG_LEDS                0x0
-#define REG_SWITCHES            0x4
-#define REG_PUSHBTN_CTL         0x8
-#define REG_7SEGS               0xc
-#define REG_7SEGS_CTL           0x10
+#define REG_LEDS_CTRL           0x4
+#define REG_SWITCHES            0x8
+#define REG_PUSHBTN_CTL         0xc
 
 #define PUSHBTN_CTL_POLL        0x0     /* Polling mode: user must read the pushbtn value */
 #define PUSHBTN_CTL_INT         0x1     /* Interrupt mode: an irq is raised on 
                                            pushbtn event. Ack when read */
-
-#define R7SEGS_CTL_HALF_LOW     0x0
-#define R7SEGS_CTL_HALF_HIGH    0x1
-#define R7SEGS_CTL_RAW          0x2
 
 #define PUSHBTN_PERSISTANCE     3      /* Stay displayed red for 3 frames when in
                                           int mode */
@@ -324,7 +319,6 @@ struct riscv_cep_fb_s {
     } draw_info;
 
     int periph_sta[GUI_ELT_NUM];
-    int r7segs_mode;
     int pushbtn_mode;
     int persistance[GUI_ELT_NUM]; /* used by pushbtn when in int mode
                                      to let the user see the red button
@@ -776,8 +770,7 @@ static uint64_t riscv_cep_periph_read(void *opaque, hwaddr addr,
 
     case REG_PUSHBTN_CTL:
     case REG_LEDS:
-    case REG_7SEGS:
-    case REG_7SEGS_CTL:
+    case REG_LEDS_CTRL:
     default:
         val = 0;
     }
@@ -804,47 +797,6 @@ static uint64_t riscv_cep_fb_ctrl_read(void *opaque, hwaddr addr,
     return val;
 }
 
-
-#if 0
-static void update_7seg(struct riscv_cep_fb_s* s, uint32_t val)
-{
-    int print_base = 0, i;
-    uint16_t v = 0;
-
-    switch(s->r7segs_mode) {
-    case R7SEGS_CTL_HALF_LOW:
-        print_base = 16;
-        v = val & 0xffff;
-        break;
-
-    case R7SEGS_CTL_HALF_HIGH:
-        print_base = 16;
-        v = (val >> 16) & 0xffff;
-        break;
-
-    case R7SEGS_CTL_RAW:
-        print_base = 10;
-        v = val;
-    default:
-        break;
-    }
-
-
-    if(print_base == 16) {
-        for(i = GUI_7SEG0_a; i <= GUI_7SEG3_a; i+=NUM_SEG) {
-            memcpy(s->periph_sta + i, r7segs_mapping + (v & 0xf), sizeof(r7segs_mapping[0]));
-            v >>= 4;
-        }
-    } else {
-        for(i = GUI_7SEG0_a; i <= GUI_7SEG3_a; i+=NUM_SEG) {
-            memcpy(s->periph_sta + i, r7segs_mapping + (v % 10), sizeof(r7segs_mapping[0]));
-            v /= 10;
-        }
-    }
-}
-#endif
-
-
 static void riscv_cep_periph_write(void *opaque, hwaddr addr, 
                                     uint64_t val, unsigned int size)
 {
@@ -859,21 +811,9 @@ static void riscv_cep_periph_write(void *opaque, hwaddr addr,
         }
         s->invalidate |= INVAL_LEDS;
         break;
-
-#if 0
-    case REG_7SEGS:
-        update_7seg(s, (uint32_t)val);
-        s->invalidate |= INVAL_7SEGS;
+    case REG_LEDS_CTRL:
+        // FIXME: Gerer l'affichage de leds entre x31 et le registre de contrôle
         break;
-
-    case REG_7SEGS_CTL:
-        if(val <= R7SEGS_CTL_RAW) {
-            s->r7segs_mode = val;
-            s->invalidate |= INVAL_7SEGS;
-        }
-        break;
-#endif
-
     case REG_PUSHBTN_CTL:
         if(val <= PUSHBTN_CTL_INT) {
             s->pushbtn_mode = val;
@@ -908,7 +848,6 @@ static void riscv_cep_fb_ctrl_write(void *opaque, hwaddr addr,
 void riscv_cep_fb_reset(struct riscv_cep_fb_s *s)
 {
     memset(s->periph_sta, 0, sizeof(s->periph_sta));
-    s->r7segs_mode = R7SEGS_CTL_HALF_LOW;
     s->pushbtn_mode = PUSHBTN_CTL_POLL;
     s->invalidate = INVAL_ALL;
 
