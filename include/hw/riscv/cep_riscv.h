@@ -39,8 +39,8 @@ enum {
 };
 
 enum {
-    CEP_UART0_IRQ          = 0,
-    CEP_PUSH_BUTTON_IRQ    = 1,
+    CEP_UART0_IRQ          = 1,
+    CEP_PUSH_BUTTON_IRQ    = 2,
 };
 
 #define SIFIVE_U_PLIC_HART_CONFIG "MS"
