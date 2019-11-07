@@ -19,6 +19,7 @@
 
 #include "qemu/osdep.h"
 #include "hw/hw.h"
+#include "hw/irq.h"
 #include "ui/console.h"
 #include "framebuffer.h"
 #include "ui/pixel_ops.h"
@@ -35,8 +36,11 @@
 #define DISPLAY_MODE_1080p      1
 
 // Choose default display mode here
-//#define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_720p
+#if 0
+#define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_720p
+#else
 #define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_1080p
+#endif
 
 #if (DISPLAY_MODE_DEFAULT == DISPLAY_MODE_1080p) //1080p
 #define VRAM_WIDTH_EFFECTIVE    1920
