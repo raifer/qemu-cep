@@ -36,7 +36,7 @@
 #define DISPLAY_MODE_1080p      1
 
 // Choose default display mode here
-#if 0
+#if 1
 #define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_720p
 #else
 #define DISPLAY_MODE_DEFAULT    DISPLAY_MODE_1080p
@@ -51,7 +51,7 @@
 #define VRAM_HEIGHT_EFFECTIVE   720
 #define HDMI_DEFAULT_MODE       4
 #else
-#error "ERROR: Unknown display mode"
+#error "ERROR: Unsupported display mode"
 #endif
 
 #define VRAM_SIZE_EFFECTIVE    (VRAM_WIDTH_EFFECTIVE * VRAM_HEIGHT_EFFECTIVE * 4)
@@ -139,7 +139,7 @@ struct gui_elt {
     int y;
 
     /* Two img: off and on */
-    const struct img_data * s[2];
+    const struct img_data *s[2];
 
     int clickable;
 };
