@@ -34,28 +34,28 @@ void QEMU_NORETURN riscv_raise_exception(CPURISCVState *env,
     /* CEP hack to brutally exit in case of exception to help our beloved students */
     switch (exception) {
        case 0:
-          fprintf(stderr, "Instruction address misaligned: pc=0x%08x\n", env->pc);
+          fprintf(stderr, "Instruction address misaligned: pc=" TARGET_FMT_lx "\n", env->pc);
           exit(1);
        case 1: 
-          fprintf(stderr, "Instruction access fault: pc=0x%08x\n", env->pc);
+          fprintf(stderr, "Instruction access fault: pc=" TARGET_FMT_lx "\n", env->pc);
           exit(1);
        case 2: 
-          fprintf(stderr, "Illegal instruction: pc=0x%08x\n", env->pc);
+          fprintf(stderr, "Illegal instruction: pc=" TARGET_FMT_lx "\n", env->pc);
           exit(1);
        case 3: 
-          fprintf(stderr, "Breakpoint/watchpoint: pc=0x%08x\n", env->pc);
+          fprintf(stderr, "Breakpoint/watchpoint: pc=" TARGET_FMT_lx "\n", env->pc);
           exit(1);
        case 4: 
-          fprintf(stderr, "Load address misaligned: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          fprintf(stderr, "Load address misaligned: badaddr=" TARGET_FMT_lx ", pc=" TARGET_FMT_lx "\n", env->badaddr, env->pc);
           exit(1);
        case 5: 
-          fprintf(stderr, "Load access fault: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          fprintf(stderr, "Load access fault: badaddr=" TARGET_FMT_lx ", pc=" TARGET_FMT_lx "\n", env->badaddr, env->pc);
           exit(1);
        case 6: 
-          fprintf(stderr, "Store address misaligned: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          fprintf(stderr, "Store address misaligned: badaddr=" TARGET_FMT_lx ", pc=" TARGET_FMT_lx "\n", env->badaddr, env->pc);
           exit(1);
        case 7: 
-          fprintf(stderr, "Store access fault: badaddr=%08x, pc=0x%08x\n", env->badaddr, env->pc);
+          fprintf(stderr, "Store access fault: badaddr=" TARGET_FMT_lx ", pc=" TARGET_FMT_lx "x\n", env->badaddr, env->pc);
           exit(1);
     }
     /* No default to catch strange cases: gdb needs this to go through ! */
