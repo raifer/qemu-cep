@@ -67,7 +67,11 @@ static const struct MemmapEntry {
     [CEP_UART0] =    { 0x10013000, 0x1000 },
     [CEP_PERIPHS] =  { 0x30000000, 0x20 },
     [CEP_VRAM] =     { 0x80000000, 0x0 }, // taille dimensionée à l'intérieur du framebuffer
-    [CEP_EXIT] =     { 0xfffffff8, 0x8 },
+#if defined(TARGET_RISCV32)
+    [CEP_EXIT] =     { 0xfffffff8, 0x8 }, // pour que ce soit facile sans mémoire virtuelle
+#elif defined(TARGET_RISCV64)
+    [CEP_EXIT] =     { 0x10000000, 0x8 }, // pour que le mapping de notre OS Xinul soit simple :)
+#endif
 };
 
 static target_ulong load_kernel(const char *kernel_filename)
